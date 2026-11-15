@@ -1,0 +1,36 @@
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: grain
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: grain
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U grain -d grain"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+  api:
+    build: ./backend
+    environment:
+      DATABASE_URL: postgresql+psycopg://grain:${POSTGRES_PASSWORD}@db:5432/grain
+      SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in .env}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173}
+      DATA_GOV_API_KEY: ${DATA_GOV_API_KEY:-}
+      MARKET_RESOURCE_ID: ${MARKET_RESOURCE_ID:-}
+      OLLAMA_URL: ${OLLAMA_URL:-http://host.docker.internal:11434}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.2:3b}
+      IOT_DEVICE_TOKEN: ${IOT_DEVICE_TOKEN:-}
+    depends_on: { db: { condition: service_healthy } }
+    ports: ["8000:8000"]
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+  frontend:
+    build: ./frontend
+    depends_on: [api]
+    ports: ["5173:80"]
+    restart: unless-stopped
+volumes:
+  pgdata: {}
